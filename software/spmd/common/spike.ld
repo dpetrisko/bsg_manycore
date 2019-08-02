@@ -83,5 +83,5 @@ SECTIONS
   _bsg_dram_end_addr = . ;
   _bsg_data_end_addr = . ;
 
-  _sp = 0xbffffffc; /* End of 1st ch of dram: 28-bit dram ch width */
+  _sp = 0xfffffffc; /* End of 1st ch of dram: 28-bit dram ch width */
 }
