@@ -15,7 +15,7 @@ VCS_INCLUDES += $(foreach inc,$(VINCLUDES),+incdir+"$(inc)")
 VCS_DEFINES  += $(foreach def,$(VDEFINES),+define+"$(def)")
 VCS_SOURCES  += $(VHEADERS) $(VSOURCES) 
 VCS_FLAGS    += +v2k -sverilog -full64 -timescale=1ps/1ps \
-	 	+lint=all,noSVA-UA,noSVA-NSVU,noVCDE,noNS -top spmd_testbench
+	 	+lint=all,noSVA-UA,noSVA-NSVU,noVCDE,noNS -top hammerblade_testbench
 
 VCS_CFLAGS   =  -cpp g++
 VCS_CFLAGS   += -CFLAGS "-std=c++11 -g -Wall"
@@ -62,11 +62,11 @@ define set_machine_variables
 	$(eval VCS_DEFINES += +define+den2048Mb+sg5+x16+FULL_MEM)
 endef
 
-%/simv : %/Makefile.machine.include $(VSOURCES) $(CSOURCES) $(VINCLUDES) $(VHEADERS) 
+4x4_hammerblade/simv : 4x4_hammerblade/Makefile.machine.include $(VSOURCES) $(CSOURCES) $(VINCLUDES) $(VHEADERS)
 	$(call set_machine_variables,$<)
 	$(VCS) $(VCS_FLAGS) $(VCS_CFLAGS) -o $@ $(VCS_INCLUDES) $(VCS_DEFINES) $(CSOURCES) $(VCS_SOURCES) | tee -i $(dir $@)/build.log
 
-%/simv-debug : %/Makefile.machine.include $(VSOURCES) $(CSOURCES) $(VINCLUDES) $(VHEADERS) 
+4x4_hammerblade/simv-debug : 4x4_hammerblade/Makefile.machine.include $(VSOURCES) $(CSOURCES) $(VINCLUDES) $(VHEADERS)
 	$(call set_machine_variables,$<)
 	$(eval VCS_FLAGS += -debug_pp +vcs+vcdpluson) # Debug adds these two variables to generate waveforms
 	$(VCS) $(VCS_FLAGS) $(VCS_CFLAGS) -o $@ $(VCS_INCLUDES) $(VCS_DEFINES) $(CSOURCES) $(VCS_SOURCES) | tee -i $(dir $@)/build_debug.log
