@@ -14,4 +14,4 @@
 	url = https://github.com/bespoke-silicon-group/beebs
 [submodule "machines/4x4_hammerblade/black-parrot"]
 	path = machines/4x4_hammerblade/black-parrot
-	url = https://github.com/black-parrot/black-parrot.git
+    url = https://github.com/black-parrot/black-parrot.git
