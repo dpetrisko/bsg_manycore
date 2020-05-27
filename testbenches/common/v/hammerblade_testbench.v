@@ -142,7 +142,6 @@ module hammerblade_testbench;
     ,.io_link_sif_o(io_link_lo)
   );
 
-  assign io_link_li[0] = '0;
   assign ver_link_li = '0;
 
   initial begin
@@ -199,46 +198,36 @@ module hammerblade_testbench;
     ,.mem_resp_yumi_o(proc_mem_resp_yumi_lo)
     );
 
-  logic [cce_mem_msg_width_lp-1:0] cfg_cmd_lo;
-  logic cfg_cmd_v_lo, cfg_cmd_yumi_li;
-  logic [cce_mem_msg_width_lp-1:0] cfg_resp_li;
-  logic cfg_resp_v_li, cfg_resp_ready_lo;
-
-  bp_cce_mmio_cfg_loader
-    #(.bp_params_p(2)
-      ,.inst_width_p(34)
-      ,.inst_ram_addr_width_p(8)
-      ,.inst_ram_els_p(256)
-      ,.skip_ram_init_p(0)
-      ,.clear_freeze_p(1)
-      )
-    cfg_loader
+  bp_cce_to_mc 
+   #(.bp_params_p(2)
+     ,.mc_x_cord_width_p(x_cord_width_lp)
+     ,.mc_y_cord_width_p(y_cord_width_lp)
+     ,.mc_data_width_p(data_width_p)
+     ,.mc_addr_width_p(bsg_max_epa_width_p)
+     )
+   cce_to_mc
     (.clk_i(core_clk)
      ,.reset_i(reset)
-  
-     ,.lce_id_i(4'('b10))
-  
-     ,.io_cmd_o(cfg_cmd_lo)
-     ,.io_cmd_v_o(cfg_cmd_v_lo)
-     ,.io_cmd_yumi_i(cfg_cmd_yumi_li)
-  
-     ,.io_resp_i(cfg_resp_li)
-     ,.io_resp_v_i(cfg_resp_v_li)
-     ,.io_resp_ready_o(cfg_resp_ready_lo)
-  
-     ,.done_o(cfg_done_lo)
-    );
 
-  assign proc_io_cmd_li = cfg_cmd_lo;
-  assign proc_io_cmd_v_li = cfg_cmd_v_lo;
-  assign cfg_cmd_yumi_li = proc_io_cmd_yumi_lo;
+     ,.io_cmd_i(proc_io_cmd_lo)
+     ,.io_cmd_v_i(proc_io_cmd_v_lo)
+     ,.io_cmd_ready_o(proc_io_cmd_ready_li)
 
-  assign cfg_resp_li = proc_io_resp_lo;
-  assign cfg_resp_v_li = proc_io_resp_v_lo;
-  assign proc_io_resp_ready_li = cfg_resp_ready_lo;
+     ,.io_resp_o(proc_io_resp_li)
+     ,.io_resp_v_o(proc_io_resp_v_li)
+     ,.io_resp_yumi_i(proc_io_resp_yumi_lo)
 
-  assign proc_io_cmd_ready_li = 1'b1;
-  assign proc_io_resp_v_li    = 1'b0;
+     ,.io_cmd_o(proc_io_cmd_li)
+     ,.io_cmd_v_o(proc_io_cmd_v_li)
+     ,.io_cmd_yumi_i(proc_io_cmd_yumi_lo)
+
+     ,.io_resp_i(proc_io_resp_lo)
+     ,.io_resp_v_i(proc_io_resp_v_lo)
+     ,.io_resp_ready_o(proc_io_resp_ready_li)
+
+     ,.link_sif_i(io_link_lo[0])
+     ,.link_sif_o(io_link_li[0])
+     );
 
   bp_mem #(
     .bp_params_p(2) //e_bp_unicore_cfg

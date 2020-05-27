@@ -23,24 +23,24 @@ BSG_MACHINE_HETERO_TYPE_VEC           = default:0
 
 BSG_MANYCORE_DIR := $(shell git rev-parse --show-toplevel)
 
-BLACKPARROT_DIR = $(BSG_MANYCORE_DIR)//machines/4x4_hammerblade/black-parrot
-BLACKPARROT_COMMON_DIR = $(BLACKPARROT_DIR)//bp_common
-BLACKPARROT_FE_DIR     = $(BLACKPARROT_DIR)//bp_fe
-BLACKPARROT_BE_DIR     = $(BLACKPARROT_DIR)//bp_be
-BLACKPARROT_ME_DIR     = $(BLACKPARROT_DIR)//bp_me
-BLACKPARROT_TOP_DIR    = $(BLACKPARROT_DIR)//bp_top
+BLACKPARROT_DIR = $(BSG_MANYCORE_DIR)/machines/4x4_hammerblade/black-parrot
+BLACKPARROT_COMMON_DIR = $(BLACKPARROT_DIR)/bp_common
+BLACKPARROT_FE_DIR     = $(BLACKPARROT_DIR)/bp_fe
+BLACKPARROT_BE_DIR     = $(BLACKPARROT_DIR)/bp_be
+BLACKPARROT_ME_DIR     = $(BLACKPARROT_DIR)/bp_me
+BLACKPARROT_TOP_DIR    = $(BLACKPARROT_DIR)/bp_top
 
-VINCLUDES += $(BASEJUMP_STL_DIR)//bsg_dataflow
-VINCLUDES += $(BASEJUMP_STL_DIR)//bsg_mem
-VINCLUDES += $(BASEJUMP_STL_DIR)//bsg_misc
-VINCLUDES += $(BASEJUMP_STL_DIR)//bsg_test
-VINCLUDES += $(BASEJUMP_STL_DIR)//bsg_noc
-VINCLUDES += $(BLACKPARROT_COMMON_DIR)//src/include
-VINCLUDES += $(BLACKPARROT_FE_DIR)//src/include
-VINCLUDES += $(BLACKPARROT_BE_DIR)//src/include
-VINCLUDES += $(BLACKPARROT_BE_DIR)//src/include/bp_be_dcache
-VINCLUDES += $(BLACKPARROT_ME_DIR)//src/include/v
-VINCLUDES += $(BLACKPARROT_TOP_DIR)//src/include
+VINCLUDES += $(BASEJUMP_STL_DIR)/bsg_dataflow
+VINCLUDES += $(BASEJUMP_STL_DIR)/bsg_mem
+VINCLUDES += $(BASEJUMP_STL_DIR)/bsg_misc
+VINCLUDES += $(BASEJUMP_STL_DIR)/bsg_test
+VINCLUDES += $(BASEJUMP_STL_DIR)/bsg_noc
+VINCLUDES += $(BLACKPARROT_COMMON_DIR)/src/include
+VINCLUDES += $(BLACKPARROT_FE_DIR)/src/include
+VINCLUDES += $(BLACKPARROT_BE_DIR)/src/include
+VINCLUDES += $(BLACKPARROT_BE_DIR)/src/include/bp_be_dcache
+VINCLUDES += $(BLACKPARROT_ME_DIR)/src/include/v
+VINCLUDES += $(BLACKPARROT_TOP_DIR)/src/include
 
 VHEADERS += $(BASEJUMP_STL_DIR)/bsg_noc/bsg_wormhole_router_pkg.v
 VHEADERS += $(BLACKPARROT_COMMON_DIR)/src/include/bp_common_rv64_pkg.vh
@@ -278,3 +278,4 @@ VSOURCES += $(BLACKPARROT_ME_DIR)/test/common/bp_mem_storage_sync.v
 VSOURCES += $(BLACKPARROT_ME_DIR)/test/common/bp_mem_delay_model.v
 VSOURCES += $(BLACKPARROT_ME_DIR)/test/common/bp_mem_utils.cpp
 VSOURCES += $(BLACKPARROT_ME_DIR)/test/common/bp_cce_mmio_cfg_loader.v
+VSOURCES += $(BSG_MANYCORE_DIR)/machines/4x4_hammerblade/bp_cce_to_mc.v

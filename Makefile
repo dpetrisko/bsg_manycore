@@ -13,3 +13,14 @@ machines:
 tools:
 	make -C software/riscv-tools checkout-all
 	make -C software/riscv-tools build-all
+
+build:
+	make -C machines/ clean 4x4_hammerblade/simv-debug
+
+include ../bsg_cadenv/cadenv.mk
+
+sim:
+	./machines/4x4_hammerblade/simv-debug
+
+wave:
+	dve -full64 -vpd vcdplus.vpd &
