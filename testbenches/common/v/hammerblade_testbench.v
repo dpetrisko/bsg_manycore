@@ -234,7 +234,7 @@ module hammerblade_testbench;
     ,.mem_cap_in_bytes_p(2**28)
     ,.mem_load_p(1)
     ,.mem_zero_p(1)
-    ,.mem_file_p("prog.mem")
+    ,.mem_file_p("manycore_poke.mem")
     ,.mem_offset_p(32'h8000_0000)
   
     ,.use_max_latency_p(1)

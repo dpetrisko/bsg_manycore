@@ -44,6 +44,14 @@ module bp_cce_to_mc
   `declare_bp_me_if(paddr_width_p, cce_block_width_p, lce_id_width_p, lce_assoc_p);
   `declare_bsg_manycore_packet_s(mc_addr_width_p, mc_data_width_p, mc_x_cord_width_p, mc_y_cord_width_p);
 
+  bp_cce_mem_msg_s io_cmd_cast_i, io_resp_cast_o;
+  bp_cce_mem_msg_s io_cmd_cast_o, io_resp_cast_i;
+
+  assign io_cmd_cast_i = io_cmd_i;
+  assign io_resp_o = io_resp_cast_o;
+  assign io_cmd_o = io_cmd_cast_o;
+  assign io_resp_cast_i = io_resp_i;
+
   bp_cce_mem_msg_s cfg_cmd_lo;
   logic cfg_cmd_v_lo, cfg_cmd_yumi_li;
   bp_cce_mem_msg_s cfg_resp_li;
@@ -160,18 +168,18 @@ module bp_cce_to_mc
 
 
   // BP signals
-  assign io_cmd_o = cfg_cmd_lo;
+  assign io_cmd_cast_o = cfg_cmd_lo;
   assign io_cmd_v_o = cfg_cmd_v_lo;
   assign cfg_cmd_yumi_li = io_cmd_yumi_i;
 
-  assign cfg_resp_li = io_resp_i;
+  assign cfg_resp_li = io_resp_cast_i;
   assign cfg_resp_v_li = io_resp_v_i;
   assign io_resp_ready_o = cfg_resp_ready_lo;
 
   assign io_cmd_ready_o = 1'b1;
 
   assign io_resp_v_o = '0;
-  assign io_resp_o = '0;
+  assign io_resp_cast_o = '0;
 
   // Manycore signals
   assign in_yumi_li = '0;
@@ -182,6 +190,12 @@ module bp_cce_to_mc
   assign out_packet_li = '0;
 
   assign returned_yumi_li = '0;
+
+  always_ff @(negedge clk_i)
+    begin
+      if (io_cmd_v_i)
+        $display("[BP] Incoming command: %p", io_cmd_cast_i);
+    end
 
 endmodule
 
