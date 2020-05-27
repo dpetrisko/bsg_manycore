@@ -17,6 +17,11 @@ module bp_cce_to_mc
      , localparam mc_packet_width_lp = `bsg_manycore_packet_width(mc_addr_width_p, mc_data_width_p, mc_x_cord_width_p, mc_y_cord_width_p)
 
      , localparam mc_link_sif_width_lp = `bsg_manycore_link_sif_width(mc_addr_width_p, mc_data_width_p, mc_x_cord_width_p, mc_y_cord_width_p)
+
+     , localparam mc_max_outstanding_p = 32
+
+     , localparam [mc_x_cord_width_p-1:0] bp_x_cord_lp = mc_x_cord_width_p'(0)
+     , localparam [mc_y_cord_width_p-1:0] bp_y_cord_lp = mc_y_cord_width_p'(1)
     )
    (input                                      clk_i
     , input                                    reset_i
@@ -103,10 +108,8 @@ module bp_cce_to_mc
   logic [4:0]                        returned_reg_id_r_lo;
   logic                              returned_v_r_lo;
   bsg_manycore_return_packet_type_e  returned_pkt_type_r_lo;
-  logic                              returned_yumi_li;
   logic                              returned_fifo_full_lo;
 
-  logic [`BSG_SAFE_CLOG2(16)-1:0]    out_credits_lo;
   bsg_manycore_endpoint_standard #(
     .x_cord_width_p(mc_x_cord_width_p)
     ,.y_cord_width_p(mc_y_cord_width_p)
@@ -157,17 +160,17 @@ module bp_cce_to_mc
     ,.returned_reg_id_r_o(returned_reg_id_r_lo)
     ,.returned_v_r_o(returned_v_r_lo)
     ,.returned_pkt_type_r_o(returned_pkt_type_r_lo)
-    ,.returned_yumi_i(returned_yumi_li)
-    ,.returned_fifo_full_o(returned_fifo_full_lo)
+    // We allocate data in the return fifo, so we can immediately accept, always
+    ,.returned_yumi_i(returned_v_r_lo)
+    ,.returned_fifo_full_o()
 
-    ,.out_credits_o(out_credits_lo)
+    ,.out_credits_o()
 
-    ,.my_x_i(0)
-    ,.my_y_i(1)
+    ,.my_x_i(bp_x_cord_lp)
+    ,.my_y_i(bp_y_cord_lp)
     );
 
-
-  // BP signals
+  // BP bootstrapping 
   assign io_cmd_cast_o = cfg_cmd_lo;
   assign io_cmd_v_o = cfg_cmd_v_lo;
   assign cfg_cmd_yumi_li = io_cmd_yumi_i;
@@ -176,25 +179,150 @@ module bp_cce_to_mc
   assign cfg_resp_v_li = io_resp_v_i;
   assign io_resp_ready_o = cfg_resp_ready_lo;
 
-  assign io_cmd_ready_o = 1'b1;
+  //
+  // TX
+  //
+  logic [`BSG_SAFE_CLOG2(mc_max_outstanding_p)-1:0] load_id_lo;
+  logic load_id_v_lo, load_id_yumi_li;
+  logic [mc_data_width_p-1:0] load_data_lo;
+  logic load_data_v_lo, load_data_yumi_li;
+  bsg_fifo_reorder
+   #(.width_p(mc_data_width_p), .els_p(mc_max_outstanding_p))
+   return_data_fifo
+    (.clk_i(clk_i)
+     ,.reset_i(reset_i)
 
-  assign io_resp_v_o = '0;
-  assign io_resp_cast_o = '0;
+     ,.fifo_alloc_id_o(load_id_lo)
+     ,.fifo_alloc_v_o(load_id_v_lo)
+     ,.fifo_alloc_yumi_i(load_id_yumi_li)
 
-  // Manycore signals
+     // Do not write an entry on credit return
+     ,.write_id_i(returned_reg_id_r_lo)
+     ,.write_data_i(returned_data_r_lo)
+     ,.write_v_i(returned_v_r_lo & !(returned_pkt_type_r_lo inside {e_return_credit}))
+
+     ,.fifo_deq_data_o(load_data_lo)
+     ,.fifo_deq_v_o(load_data_v_lo)
+     ,.fifo_deq_yumi_i(load_data_yumi_li)
+
+     ,.empty_o()
+     );
+  assign load_id_yumi_li  = io_cmd_v_i & (io_cmd_cast_i.header.msg_type inside {e_cce_mem_uc_rd, e_cce_mem_rd});
+  assign load_data_yumi_li = io_resp_yumi_i;
+
+  bp_cce_mem_msg_header_s io_resp_header_lo;
+  logic io_resp_header_v_lo, io_resp_header_yumi_li;
+  logic header_ready_lo;
+  bsg_fifo_1r1w_small
+   #(.width_p($bits(io_cmd_cast_i.header)), .els_p(mc_max_outstanding_p))
+   return_header_fifo
+    (.clk_i(clk_i)
+     ,.reset_i(reset_i)
+
+     ,.data_i(io_cmd_cast_i.header)
+     ,.v_i(io_cmd_v_i)
+     ,.ready_o(header_ready_lo)
+
+     ,.data_o(io_resp_header_lo)
+     ,.v_o(io_resp_header_v_lo)
+     ,.yumi_i(io_resp_header_yumi_li)
+     );
+  assign io_resp_header_yumi_li = io_resp_yumi_i;
+
+  // Command packet formation
+  always_comb
+    begin
+      io_cmd_ready_o = load_id_v_lo & header_ready_lo & out_ready_lo;
+      out_v_li = io_cmd_v_i;
+
+      case (io_cmd_cast_i.header.msg_type)
+        e_cce_mem_uc_rd:
+          begin
+            // Word-aligned address
+            out_packet_li.addr                             = (io_cmd_cast_i.header.addr >> 2);
+            out_packet_li.op                               = e_remote_load;
+            // Ignored for remote loads
+            out_packet_li.op_ex                            = '0;
+            // Overload reg_id with the load id of the request
+            out_packet_li.reg_id                           = bsg_manycore_reg_id_width_gp'(load_id_lo);
+            // Irrelevant for bp loads
+            out_packet_li.payload.load_info_s.load_info.float_wb       = '0;
+            out_packet_li.payload.load_info_s.load_info.icache_fetch   = '0;
+            out_packet_li.payload.load_info_s.load_info.is_unsigned_op = '0;
+            // 64-bit+ packets are not supported
+            out_packet_li.payload.load_info_s.load_info.is_byte_op     = (io_cmd_cast_i.header.size == e_mem_msg_size_1);
+            out_packet_li.payload.load_info_s.load_info.is_hex_op      = (io_cmd_cast_i.header.size == e_mem_msg_size_2);
+            // Assume aligned for now
+            out_packet_li.payload.load_info_s.load_info.part_sel       = (io_cmd_cast_i.header.addr[0+:2]);
+            out_packet_li.src_y_cord                       = bp_y_cord_lp;
+            out_packet_li.src_x_cord                       = bp_x_cord_lp;
+            out_packet_li.y_cord                           = io_cmd_cast_i.header.addr[2+mc_addr_width_p+mc_x_cord_width_p+:mc_y_cord_width_p];
+            out_packet_li.x_cord                           = io_cmd_cast_i.header.addr[2+mc_addr_width_p+:mc_x_cord_width_p];
+          end
+        e_cce_mem_uc_wr:
+          begin
+            // Word-aligned address
+            out_packet_li.addr                             = (io_cmd_cast_i.header.addr >> 2);
+            out_packet_li.op                               = e_remote_store;
+            // Set store data and mask (assume aligned)
+            case (io_cmd_cast_i.header.size)
+              e_mem_msg_size_1:
+                begin
+                  out_packet_li.payload.data               = {4{io_cmd_cast_i.data[0+:8]}};
+                  out_packet_li.op_ex.store_mask           = 4'h1 << io_cmd_cast_i.header.addr[0+:2];
+                end
+              e_mem_msg_size_2:
+                begin
+                  out_packet_li.payload.data               = {2{io_cmd_cast_i.data[0+:16]}};
+                  out_packet_li.op_ex.store_mask           = 4'h3 << io_cmd_cast_i.header.addr[0+:2];
+                end
+              e_mem_msg_size_4:
+                begin
+                  out_packet_li.payload.data               = {1{io_cmd_cast_i.data[0+:32]}};
+                  out_packet_li.op_ex.store_mask           = 4'hf << io_cmd_cast_i.header.addr[0+:2];
+                end
+              default:
+                begin
+                  out_packet_li.payload.data               = '0;
+                  out_packet_li.op_ex.store_mask           = '0;
+                end
+            endcase
+            out_packet_li.reg_id                           = '0;
+            out_packet_li.src_y_cord                       = bp_y_cord_lp;
+            out_packet_li.src_x_cord                       = bp_x_cord_lp;
+            out_packet_li.y_cord                           = io_cmd_cast_i.header.addr[2+mc_addr_width_p+mc_x_cord_width_p+:mc_y_cord_width_p];
+            out_packet_li.x_cord                           = io_cmd_cast_i.header.addr[2+mc_addr_width_p+:mc_x_cord_width_p];
+          end
+        // Unsupported
+        e_cce_mem_pre
+        ,e_cce_mem_rd
+        ,e_cce_mem_wr: out_packet_li = '0;
+        default      : out_packet_li = '0;
+      endcase
+    end
+
+  // Response packet formation
+  always_comb
+    begin
+     io_resp_v_o = io_resp_header_v_lo & load_data_v_lo;
+
+     io_resp_cast_o.header = io_resp_header_lo;
+     io_resp_cast_o.data   = load_data_lo;
+    end
+
+  //
+  // RX (stubbed)
+  //
   assign in_yumi_li = '0;
   assign returning_data_li = '0;
   assign returning_v_li = '0;
-
-  assign out_v_li = '0;
-  assign out_packet_li = '0;
-
-  assign returned_yumi_li = '0;
 
   always_ff @(negedge clk_i)
     begin
       if (io_cmd_v_i)
         $display("[BP] Incoming command: %p", io_cmd_cast_i);
+      if (io_resp_yumi_i)
+        $display("[BP] Outgoing response: %p", io_resp_cast_o);
     end
 
 endmodule

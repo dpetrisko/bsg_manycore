@@ -279,3 +279,5 @@ VSOURCES += $(BLACKPARROT_ME_DIR)/test/common/bp_mem_delay_model.v
 VSOURCES += $(BLACKPARROT_ME_DIR)/test/common/bp_mem_utils.cpp
 VSOURCES += $(BLACKPARROT_ME_DIR)/test/common/bp_cce_mmio_cfg_loader.v
 VSOURCES += $(BSG_MANYCORE_DIR)/machines/4x4_hammerblade/bp_cce_to_mc.v
+VSOURCES += $(BASEJUMP_STL_DIR)/bsg_dataflow/bsg_fifo_reorder.v
+VSOURCES += $(BASEJUMP_STL_DIR)/bsg_misc/bsg_dff_reset_set_clear.v
