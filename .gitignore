@@ -33,3 +33,4 @@ DVEfiles
 csrc
 software/spmd/*/build/
 software/spmd/*/link_script.ld
+*mem.rebase

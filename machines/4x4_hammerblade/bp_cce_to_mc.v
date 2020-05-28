@@ -10,13 +10,13 @@ module bp_cce_to_mc
      `declare_bp_proc_params(bp_params_p)
      `declare_bp_me_if_widths(paddr_width_p, cce_block_width_p, lce_id_width_p, lce_assoc_p)
  
-     , parameter mc_x_cord_width_p = "inv"
-     , parameter mc_y_cord_width_p = "inv"
-     , parameter mc_data_width_p   = "inv"
-     , parameter mc_addr_width_p   = "inv"
-     , localparam mc_packet_width_lp = `bsg_manycore_packet_width(mc_addr_width_p, mc_data_width_p, mc_x_cord_width_p, mc_y_cord_width_p)
+     , parameter mc_x_cord_width_p        = "inv"
+     , parameter mc_y_cord_width_p        = "inv"
+     , parameter mc_data_width_p          = "inv"
+     , parameter mc_addr_width_p          = "inv"
+     , localparam mc_packet_width_lp      = `bsg_manycore_packet_width(mc_addr_width_p, mc_data_width_p, mc_x_cord_width_p, mc_y_cord_width_p)
 
-     , localparam mc_link_sif_width_lp = `bsg_manycore_link_sif_width(mc_addr_width_p, mc_data_width_p, mc_x_cord_width_p, mc_y_cord_width_p)
+     , localparam mc_link_sif_width_lp    = `bsg_manycore_link_sif_width(mc_addr_width_p, mc_data_width_p, mc_x_cord_width_p, mc_y_cord_width_p)
 
      , localparam mc_max_outstanding_p = 32
 
@@ -229,6 +229,29 @@ module bp_cce_to_mc
      );
   assign io_resp_header_yumi_li = io_resp_yumi_i;
 
+  typedef struct packed
+  {
+    logic dram_not_tile;
+    logic tile_not_dram;
+    union packed
+    {
+      struct packed
+      {
+        logic [29:0] dram_addr;
+      } dram_eva;
+      struct packed
+      {
+        logic [max_y_cord_width_gp-1:0]    y_cord;
+        logic [max_x_cord_width_gp-1:0]    x_cord;
+        logic [epa_word_addr_width_gp-1:0] epa;
+        logic [1:0]                        low_bits;
+      } tile_eva;
+    } a;
+  } bp_eva_s;
+
+  bp_eva_s io_cmd_eva_li;
+  assign io_cmd_eva_li = io_cmd_cast_i.header.addr;
+
   // Command packet formation
   always_comb
     begin
@@ -239,7 +262,7 @@ module bp_cce_to_mc
         e_cce_mem_uc_rd:
           begin
             // Word-aligned address
-            out_packet_li.addr                             = (io_cmd_cast_i.header.addr >> 2);
+            out_packet_li.addr                             = io_cmd_eva_li.a.tile_eva.epa;
             out_packet_li.op                               = e_remote_load;
             // Ignored for remote loads
             out_packet_li.op_ex                            = '0;
@@ -253,36 +276,37 @@ module bp_cce_to_mc
             out_packet_li.payload.load_info_s.load_info.is_byte_op     = (io_cmd_cast_i.header.size == e_mem_msg_size_1);
             out_packet_li.payload.load_info_s.load_info.is_hex_op      = (io_cmd_cast_i.header.size == e_mem_msg_size_2);
             // Assume aligned for now
-            out_packet_li.payload.load_info_s.load_info.part_sel       = (io_cmd_cast_i.header.addr[0+:2]);
+            out_packet_li.payload.load_info_s.load_info.part_sel       = io_cmd_eva_li.a.tile_eva.low_bits;
             out_packet_li.src_y_cord                       = bp_y_cord_lp;
             out_packet_li.src_x_cord                       = bp_x_cord_lp;
-            out_packet_li.y_cord                           = io_cmd_cast_i.header.addr[2+mc_addr_width_p+mc_x_cord_width_p+:mc_y_cord_width_p];
-            out_packet_li.x_cord                           = io_cmd_cast_i.header.addr[2+mc_addr_width_p+:mc_x_cord_width_p];
+            out_packet_li.y_cord                           = io_cmd_eva_li.a.tile_eva.y_cord;
+            out_packet_li.x_cord                           = io_cmd_eva_li.a.tile_eva.x_cord;
           end
         e_cce_mem_uc_wr:
           begin
             // Word-aligned address
-            out_packet_li.addr                             = (io_cmd_cast_i.header.addr >> 2);
+            out_packet_li.addr                             = io_cmd_eva_li.a.tile_eva.epa;
             out_packet_li.op                               = e_remote_store;
             // Set store data and mask (assume aligned)
             case (io_cmd_cast_i.header.size)
               e_mem_msg_size_1:
                 begin
                   out_packet_li.payload.data               = {4{io_cmd_cast_i.data[0+:8]}};
-                  out_packet_li.op_ex.store_mask           = 4'h1 << io_cmd_cast_i.header.addr[0+:2];
+                  out_packet_li.op_ex.store_mask           = 4'h1 << io_cmd_eva_li.a.tile_eva.low_bits;
                 end
               e_mem_msg_size_2:
                 begin
                   out_packet_li.payload.data               = {2{io_cmd_cast_i.data[0+:16]}};
-                  out_packet_li.op_ex.store_mask           = 4'h3 << io_cmd_cast_i.header.addr[0+:2];
+                  out_packet_li.op_ex.store_mask           = 4'h3 << io_cmd_eva_li.a.tile_eva.low_bits;
                 end
               e_mem_msg_size_4:
                 begin
                   out_packet_li.payload.data               = {1{io_cmd_cast_i.data[0+:32]}};
-                  out_packet_li.op_ex.store_mask           = 4'hf << io_cmd_cast_i.header.addr[0+:2];
+                  out_packet_li.op_ex.store_mask           = 4'hf << io_cmd_eva_li.a.tile_eva.low_bits;
                 end
               default:
                 begin
+                  // Should not happen
                   out_packet_li.payload.data               = '0;
                   out_packet_li.op_ex.store_mask           = '0;
                 end
@@ -290,8 +314,8 @@ module bp_cce_to_mc
             out_packet_li.reg_id                           = '0;
             out_packet_li.src_y_cord                       = bp_y_cord_lp;
             out_packet_li.src_x_cord                       = bp_x_cord_lp;
-            out_packet_li.y_cord                           = io_cmd_cast_i.header.addr[2+mc_addr_width_p+mc_x_cord_width_p+:mc_y_cord_width_p];
-            out_packet_li.x_cord                           = io_cmd_cast_i.header.addr[2+mc_addr_width_p+:mc_x_cord_width_p];
+            out_packet_li.y_cord                           = io_cmd_eva_li.a.tile_eva.y_cord;
+            out_packet_li.x_cord                           = io_cmd_eva_li.a.tile_eva.x_cord;
           end
         // Unsupported
         e_cce_mem_pre
@@ -321,6 +345,8 @@ module bp_cce_to_mc
     begin
       if (io_cmd_v_i)
         $display("[BP] Incoming command: %p", io_cmd_cast_i);
+      if (out_v_li)
+        $display("[LINK] Outgoing mc_pkt: %p", out_packet_li);
       if (io_resp_yumi_i)
         $display("[BP] Outgoing response: %p", io_resp_cast_o);
     end
