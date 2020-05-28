@@ -109,6 +109,8 @@ module bp_cce_to_mc
   logic                              returned_v_r_lo;
   bsg_manycore_return_packet_type_e  returned_pkt_type_r_lo;
   logic                              returned_fifo_full_lo;
+  logic                              returned_credit_v_r_lo;
+  logic [4:0]                        returned_credit_reg_id_r_lo;
 
   bsg_manycore_endpoint_standard #(
     .x_cord_width_p(mc_x_cord_width_p)
@@ -164,6 +166,9 @@ module bp_cce_to_mc
     ,.returned_yumi_i(returned_v_r_lo)
     ,.returned_fifo_full_o()
 
+    ,.returned_credit_v_r_o(returned_credit_v_r_lo)
+    ,.returned_credit_reg_id_r_o(returned_credit_reg_id_r_lo)
+
     ,.out_credits_o()
 
     ,.my_x_i(bp_x_cord_lp)
@@ -182,8 +187,8 @@ module bp_cce_to_mc
   //
   // TX
   //
-  logic [`BSG_SAFE_CLOG2(mc_max_outstanding_p)-1:0] load_id_lo;
-  logic load_id_v_lo, load_id_yumi_li;
+  logic [`BSG_SAFE_CLOG2(mc_max_outstanding_p)-1:0] trans_id_lo;
+  logic trans_id_v_lo, trans_id_yumi_li;
   logic [mc_data_width_p-1:0] load_data_lo;
   logic load_data_v_lo, load_data_yumi_li;
   bsg_fifo_reorder
@@ -192,14 +197,16 @@ module bp_cce_to_mc
     (.clk_i(clk_i)
      ,.reset_i(reset_i)
 
-     ,.fifo_alloc_id_o(load_id_lo)
-     ,.fifo_alloc_v_o(load_id_v_lo)
-     ,.fifo_alloc_yumi_i(load_id_yumi_li)
+     ,.fifo_alloc_id_o(trans_id_lo)
+     ,.fifo_alloc_v_o(trans_id_v_lo)
+     ,.fifo_alloc_yumi_i(trans_id_yumi_li)
 
-     // Do not write an entry on credit return
-     ,.write_id_i(returned_reg_id_r_lo)
+     // We write an entry on credit return in order to determine when to send
+     //   back a store response.  A little inefficent, but allocating storage for
+     //   worst case (all loads) isn't unreasonable
+     ,.write_id_i(returned_v_r_lo ? returned_reg_id_r_lo : returned_credit_reg_id_r_lo)
      ,.write_data_i(returned_data_r_lo)
-     ,.write_v_i(returned_v_r_lo & !(returned_pkt_type_r_lo inside {e_return_credit}))
+     ,.write_v_i(returned_v_r_lo | returned_credit_v_r_lo)
 
      ,.fifo_deq_data_o(load_data_lo)
      ,.fifo_deq_v_o(load_data_v_lo)
@@ -207,7 +214,7 @@ module bp_cce_to_mc
 
      ,.empty_o()
      );
-  assign load_id_yumi_li  = io_cmd_v_i & (io_cmd_cast_i.header.msg_type inside {e_cce_mem_uc_rd, e_cce_mem_rd});
+  assign trans_id_yumi_li  = io_cmd_v_i;
   assign load_data_yumi_li = io_resp_yumi_i;
 
   bp_cce_mem_msg_header_s io_resp_header_lo;
@@ -255,7 +262,7 @@ module bp_cce_to_mc
   // Command packet formation
   always_comb
     begin
-      io_cmd_ready_o = load_id_v_lo & header_ready_lo & out_ready_lo;
+      io_cmd_ready_o = trans_id_v_lo & header_ready_lo & out_ready_lo;
       out_v_li = io_cmd_v_i;
 
       case (io_cmd_cast_i.header.msg_type)
@@ -266,8 +273,8 @@ module bp_cce_to_mc
             out_packet_li.op                               = e_remote_load;
             // Ignored for remote loads
             out_packet_li.op_ex                            = '0;
-            // Overload reg_id with the load id of the request
-            out_packet_li.reg_id                           = bsg_manycore_reg_id_width_gp'(load_id_lo);
+            // Overload reg_id with the trans id of the request
+            out_packet_li.reg_id                           = bsg_manycore_reg_id_width_gp'(trans_id_lo);
             // Irrelevant for bp loads
             out_packet_li.payload.load_info_s.load_info.float_wb       = '0;
             out_packet_li.payload.load_info_s.load_info.icache_fetch   = '0;
@@ -311,7 +318,7 @@ module bp_cce_to_mc
                   out_packet_li.op_ex.store_mask           = '0;
                 end
             endcase
-            out_packet_li.reg_id                           = '0;
+            out_packet_li.reg_id                           = bsg_manycore_reg_id_width_gp'(trans_id_lo);
             out_packet_li.src_y_cord                       = bp_y_cord_lp;
             out_packet_li.src_x_cord                       = bp_x_cord_lp;
             out_packet_li.y_cord                           = io_cmd_eva_li.a.tile_eva.y_cord;
