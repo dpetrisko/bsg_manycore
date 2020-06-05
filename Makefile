@@ -15,7 +15,7 @@ tools:
 	make -C software/riscv-tools build-all
 
 build:
-	make -C machines/ clean 4x4_hammerblade/simv-debug
+	make -C machines/ clean 4x4_hammerblade/simv-debug | tee build.log
 
 include ../bsg_cadenv/cadenv.mk
 
@@ -24,10 +24,13 @@ binary:
 	cp machines/4x4_hammerblade/black-parrot/bp_common/test/mem/bp_tests/manycore_poke.riscv .
 	machines/4x4_hammerblade/black-parrot/external/bin/riscv64-unknown-elf-dramfs-objcopy -O verilog manycore_poke.riscv manycore_poke.mem
 	machines/4x4_hammerblade/black-parrot/external/bin/riscv64-unknown-elf-dramfs-objdump -d manycore_poke.riscv > manycore_poke.dump
-
+	cp machines/4x4_hammerblade/black-parrot/bp_common/test/mem/bp_tests/manycore_poke_fifo.riscv .
+	machines/4x4_hammerblade/black-parrot/external/bin/riscv64-unknown-elf-dramfs-objcopy -O verilog manycore_poke_fifo.riscv manycore_poke_fifo.mem
+	machines/4x4_hammerblade/black-parrot/external/bin/riscv64-unknown-elf-dramfs-objdump -d manycore_poke_fifo.riscv > manycore_poke_fifo.dump
 
 sim:
-	./machines/4x4_hammerblade/simv-debug
+	cp manycore_poke_fifo.mem prog.mem
+	./machines/4x4_hammerblade/simv-debug | tee sim.log
 
 wave:
 	dve -full64 -vpd vcdplus.vpd &
