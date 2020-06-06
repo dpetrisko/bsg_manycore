@@ -23,7 +23,7 @@ BSG_MACHINE_HETERO_TYPE_VEC           = default:0
 
 BSG_MANYCORE_DIR := $(shell git rev-parse --show-toplevel)
 
-BLACKPARROT_DIR = $(BSG_MANYCORE_DIR)/machines/4x4_hammerblade/black-parrot
+BLACKPARROT_DIR        = $(BSG_MANYCORE_DIR)/../black-parrot
 BLACKPARROT_COMMON_DIR = $(BLACKPARROT_DIR)/bp_common
 BLACKPARROT_FE_DIR     = $(BLACKPARROT_DIR)/bp_fe
 BLACKPARROT_BE_DIR     = $(BLACKPARROT_DIR)/bp_be
@@ -278,6 +278,7 @@ VSOURCES += $(BLACKPARROT_ME_DIR)/test/common/bp_mem_storage_sync.v
 VSOURCES += $(BLACKPARROT_ME_DIR)/test/common/bp_mem_delay_model.v
 VSOURCES += $(BLACKPARROT_ME_DIR)/test/common/bp_mem_utils.cpp
 VSOURCES += $(BLACKPARROT_ME_DIR)/test/common/bp_cce_mmio_cfg_loader.v
-VSOURCES += $(BSG_MANYCORE_DIR)/machines/4x4_hammerblade/bp_cce_to_mc.v
+VSOURCES += $(BSG_MANYCORE_DIR)/machines/4x4_hammerblade/bp_cce_to_mc_fifo.v
+VSOURCES += $(BSG_MANYCORE_DIR)/machines/4x4_hammerblade/bp_cce_to_mc_mmio.v
 VSOURCES += $(BASEJUMP_STL_DIR)/bsg_dataflow/bsg_fifo_reorder.v
 VSOURCES += $(BASEJUMP_STL_DIR)/bsg_misc/bsg_dff_reset_set_clear.v

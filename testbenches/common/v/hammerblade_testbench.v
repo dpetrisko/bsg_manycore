@@ -198,7 +198,8 @@ module hammerblade_testbench;
     ,.mem_resp_yumi_o(proc_mem_resp_yumi_lo)
     );
 
-  bp_cce_to_mc 
+  //bp_cce_to_mc_fifo
+  bp_cce_to_mc_mmio
    #(.bp_params_p(2)
      ,.mc_x_cord_width_p(x_cord_width_lp)
      ,.mc_y_cord_width_p(y_cord_width_lp)

@@ -1,5 +1,5 @@
 
-module bp_cce_to_mc
+module bp_cce_to_mc_fifo
   import bp_common_pkg::*;
   import bp_common_aviary_pkg::*;
   import bp_cce_pkg::*;
